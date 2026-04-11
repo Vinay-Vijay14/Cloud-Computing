@@ -1,0 +1,60 @@
+name: Push Repository Content to EC2 Instance in AWS
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: Deploy to EC2 on main branch push
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout the files
+        uses: actions/checkout@v3
+
+      - name: Create target directory on EC2
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.HOST_DNS }}
+          username: ${{ secrets.USERNAME }}   # should be ec2-user
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            mkdir -p /home/${{ secrets.USERNAME }}/app
+
+      - name: Deploy files to EC2 (rsync)
+        uses: easingthemes/ssh-deploy@main
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.EC2_SSH_KEY }}
+          REMOTE_HOST: ${{ secrets.HOST_DNS }}
+          REMOTE_USER: ${{ secrets.USERNAME }}
+          SOURCE: "./"
+          TARGET: "/home/${{ secrets.USERNAME }}/app"
+
+      - name: Setup Apache and deploy website
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.HOST_DNS }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            echo "Installing Apache (httpd)"
+            sudo yum update -y
+            sudo yum install -y httpd
+
+            echo "Starting Apache"
+            sudo systemctl start httpd
+            sudo systemctl enable httpd
+
+            echo "Deploying files to web root"
+            sudo rm -rf /var/www/html/*
+            sudo cp -r /home/${{ secrets.USERNAME }}/app/* /var/www/html/
+
+            echo "Setting permissions"
+            sudo chown -R apache:apache /var/www/html
+            sudo chmod -R 755 /var/www/html
+
+            echo "Restarting Apache"
+            sudo systemctl restart httpd
