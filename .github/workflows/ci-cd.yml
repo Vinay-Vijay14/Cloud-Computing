@@ -1,11 +1,11 @@
 name: Push Repository Content to EC2 Instance in AWS
 
 # Trigger deployment only on push to main branch - Test bit - 1
-on:
-  push:
-    branches:
-      - main
-  workflow_dispatch:
+#on:
+  #push:
+    #branches:
+      #- main
+  #workflow_dispatch:
 
 jobs:
   deploy:
